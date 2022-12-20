@@ -32,8 +32,8 @@ resource "aws_security_group_rule" "ingress_bastion" {
   count            = var.bastion_security_group_id == "" ? 1 : 0
   description      = "Incoming traffic to bastion"
   type             = "ingress"
-  from_port        = var.public_ssh_port
-  to_port          = var.public_ssh_port
+  from_port        = var.private_ssh_port
+  to_port          = var.private_ssh_port
   protocol         = "TCP"
   cidr_blocks      = local.ipv4_cidr_block
   ipv6_cidr_blocks = local.ipv6_cidr_block
@@ -169,7 +169,7 @@ resource "aws_lb" "bastion_lb" {
 
 resource "aws_lb_target_group" "bastion_lb_target_group" {
   name        = "${local.name_prefix}-lb-target"
-  port        = var.public_ssh_port
+  port        = var.private_ssh_port
   protocol    = "TCP"
   vpc_id      = var.vpc_id
   target_type = "instance"
@@ -221,7 +221,7 @@ resource "aws_launch_template" "bastion_launch_template" {
     bucket_name             = var.bucket_name
     extra_user_data_content = var.extra_user_data_content
     allow_ssh_commands      = lower(var.allow_ssh_commands)
-    public_ssh_port         = var.public_ssh_port
+    private_ssh_port         = var.private_ssh_port
     sync_logs_cron_job      = var.enable_logs_s3_sync ? "*/5 * * * * /usr/bin/bastion/sync_s3" : ""
   }))
 
@@ -255,7 +255,7 @@ resource "aws_autoscaling_group" "bastion_auto_scaling_group" {
   name_prefix = "ASG-${local.name_prefix}"
   launch_template {
     id      = aws_launch_template.bastion_launch_template.id
-    version = aws_launch_template.bastion_launch_template.latest_version
+    version = "$Latest"
   }
   max_size         = var.bastion_instance_count
   min_size         = var.bastion_instance_count
@@ -289,10 +289,6 @@ resource "aws_autoscaling_group" "bastion_auto_scaling_group" {
     key                 = "Name"
     value               = "ASG-${local.name_prefix}"
     propagate_at_launch = true
-  }
-
-  instance_refresh {
-    strategy = "Rolling"
   }
 
   lifecycle {
